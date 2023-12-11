@@ -50,6 +50,7 @@ public class JogoDeCartas1 {
         private List<List<Integer>> maos;
         private List<Integer> pontuacao;
         private List<String> nomesJogadores;
+        private Map<String, List<Integer>> cartasColetadas;
 
         public Jogo(int numJogadores) {
             tabuleiro = new ArrayList<>();
@@ -74,6 +75,11 @@ public class JogoDeCartas1 {
             // Cria o baralho e dá as cartas
             List<Integer> baralho = criarBaralho();
             distribuirCartas(baralho);
+
+            cartasColetadas = new HashMap<>();
+            for (String nome : nomesJogadores) {
+                cartasColetadas.put(nome, new ArrayList<>()); // Inicializa a lista para cada jogador
+            }
         }
 
         // Cria os jogadores
@@ -115,117 +121,142 @@ public class JogoDeCartas1 {
             imprimirEstadoAtual();
         }
 
-        // Valida se a carta é válida e joga se for, senão pede para informar uma válida
+
         public void jogarCarta(int jogador, int carta) {
-            
             Scanner scanner = new Scanner(System.in);
+            
             while (!maos.get(jogador).contains(carta)) {
                 System.out.println("A carta " + carta + " não está na mão do jogador " + (jogador + 1) + ". Escolha uma carta válida:");
                 carta = scanner.nextInt();
-            }
-
-            //Lógica de posicionar a carta
+            }        
+            
             int linha = escolherLinha(tabuleiro, carta);
             int coluna = escolherColuna(tabuleiro.get(linha), carta);
-           
-            // Posiciona a carta ao tabuleiro na posição determinada
-            tabuleiro.get(linha).add(coluna, carta);
-
-            // Remove a carta da mão do jogador
-            maos.get(jogador).remove(Integer.valueOf(carta));
-
-            // // Atualiza a pontuação do jogador
-            // pontuacao.set(jogador, pontuacao.get(jogador) + calcularPontos(carta));
-
-            // Verifica se a linha está cheia e coleta as cartas (se necessário)
-            if (tabuleiro.get(linha).size() == 5) {
-                
-                pontuacao.set(jogador, pontuacao.get(jogador) + coletarCartas(linha));
-                
-                // Atualiza a pontuação do jogador
-                pontuacao.set(jogador, pontuacao.get(jogador) + calcularPontos(carta));
-
+        
+            if (coluna == tabuleiro.get(linha).size()) {
+                tabuleiro.get(linha).add(carta);
+            } else {
+                tabuleiro.get(linha).add(coluna + 1, carta);
             }
-
-            // Printa a jogada 
+        
+            maos.get(jogador).remove(Integer.valueOf(carta));
+        
+            if (tabuleiro.get(linha).size() == 5) {
+                int pontosCartas = calcularPontos(carta);
+                int pontosColetados = coletarCartas(linha, jogador); // Chamada para coletarCartas com o jogador como parâmetro
+                pontuacao.set(jogador, pontuacao.get(jogador) + pontosCartas + pontosColetados);
+            }
+        
             System.out.println("Jogador " + (jogador + 1) + " - " + getNomeJogador(jogador) + " jogou a carta " + carta);
         }
 
+        private int coletarCartas(int linha, int jogadorQueColetou) {
+            if (linha >= 0 && linha < pontuacao.size()) {
+                List<Integer> cartasColetadasLinha = new ArrayList<>(tabuleiro.get(linha));
+                int somaCartas = 0;
+        
+                for (Integer carta : cartasColetadasLinha) {
+                    somaCartas += calcularPontos(carta); // Soma os pontos de cada carta coletada
+                }
+        
+                tabuleiro.get(linha).clear();
+        
+                // Atualiza a pontuação do jogador com a soma dos pontos das cartas coletadas
+                pontuacao.set(jogadorQueColetou, pontuacao.get(jogadorQueColetou) + somaCartas);
+        
+                // Adiciona as cartas coletadas ao jogador correto
+                String nomeJogador = getNomeJogador(jogadorQueColetou);
+                List<Integer> cartasColetadasJogador = cartasColetadas.getOrDefault(nomeJogador, new ArrayList<>());
+                cartasColetadasJogador.addAll(cartasColetadasLinha);
+                cartasColetadas.put(nomeJogador, cartasColetadasJogador); // Atualiza as cartas coletadas pelo jogador
+        
+                return somaCartas;
+            } else {
+                System.out.println("Índice de pontuação inválido: " + linha);
+                return 0;
+            }
+        }
 
         private int escolherLinha(List<List<Integer>> tabuleiro, int carta) {
-            // Lógica para escolher a linha correta com base nas regras informadas para o trabalho
             int linhaEscolhida = 0;
             int menorDiferenca = Integer.MAX_VALUE;
-
+        
             for (int i = 0; i < tabuleiro.size(); i++) {
                 List<Integer> linha = tabuleiro.get(i);
-
+        
                 if (linha.isEmpty() || carta > linha.get(linha.size() - 1)) {
                     int diferenca = carta - (linha.isEmpty() ? 0 : linha.get(linha.size() - 1));
-
+        
                     if (diferenca < menorDiferenca) {
                         menorDiferenca = diferenca;
                         linhaEscolhida = i;
                     }
                 }
             }
-
+        
+            // Adiciona uma verificação extra para garantir que a linha escolhida não ultrapasse os limites
+            if (linhaEscolhida >= tabuleiro.size()) {
+                linhaEscolhida = tabuleiro.size() - 1;
+            }
+        
             return linhaEscolhida;
         }
-
+        
         private int escolherColuna(List<Integer> linha, int carta) {
-            // Lógica para escolher a coluna correta com base nas regras informadas para o trabalho
             int colunaEscolhida = 0;
-
+        
             for (int i = 0; i < linha.size(); i++) {
                 if (carta > linha.get(i)) {
                     colunaEscolhida = i + 1;
                 } else {
+                    int diferencaAtual = Math.abs(carta - linha.get(i));
+                    int diferencaProxima = i + 1 < linha.size() ? Math.abs(carta - linha.get(i + 1)) : Integer.MAX_VALUE;
+        
+                    if (diferencaProxima <= diferencaAtual) {
+                        colunaEscolhida = i + 1;
+                    }
                     break;
                 }
             }
-
+        
+            if (colunaEscolhida >= linha.size()) {
+                colunaEscolhida = linha.size() - 1; // Ajustando para a última posição possível
+            }
+        
             return colunaEscolhida;
         }
 
-        // Calcula os Pontos seguindo as regras do trabalho
         private int calcularPontos(int carta) {
-            // Lógica para calcular os pontos com base nas regras
-            int pontos = 1; // Pontuação base das cartas
-
+            int pontos = 1; // Pontuação padrão para as cartas que não atendem a nenhum critério específico
+        
             if (carta % 10 == 5) {
-                pontos++; // Regra a = Cartas terminadas com o dígito 5 valem 1 ponto extra;
+                pontos += 1; // Regra a = Cartas terminadas com o dígito 5 valem 1 ponto extra;
             }
-
+        
             if (carta % 10 == 0) {
                 pontos += 2; // Regra b = Cartas múltiplas de 10 valem 2 pontos extras;
             }
-
+        
             if (temDigitosRepetidos(carta)) {
                 pontos += 4; // Regra c = Cartas com dois dígitos repetidos valem 4 pontos extras;
             }
-
+        
             return pontos;
         }
-
+        
         private boolean temDigitosRepetidos(int carta) {
-            // Verifica se a carta tem dois dígitos repetidos para acrescentar pontos
             String cartaStr = String.valueOf(carta);
             return cartaStr.length() == 3 && (cartaStr.charAt(0) == cartaStr.charAt(1) || cartaStr.charAt(1) == cartaStr.charAt(2));
         }
 
-        private int coletarCartas(int linha) {
-            // Coleta as cartas de uma linha cheia
-            List<Integer> cartasColetadas = tabuleiro.get(linha);
-            tabuleiro.get(linha).clear(); // Limpa a linha para seguir o jogo
-            return cartasColetadas.stream().mapToInt(Integer::intValue).sum();
-        }
-
         // Captura o nome do jogador
         public String getNomeJogador(int jogador) {
-            return nomesJogadores.get(jogador);
+            if (jogador >= 0 && jogador < nomesJogadores.size()) {
+                return nomesJogadores.get(jogador);
+            } else {
+                return "Jogador desconhecido";
+            }
         }
-
         // Mostra a mão do jogador
         public void mostrarMao(int jogador) {
             System.out.println("Mão do Jogador " + getNomeJogador(jogador) + ": " + maos.get(jogador));
@@ -242,38 +273,41 @@ public class JogoDeCartas1 {
                 }
                 System.out.println();
             }
-            
+        
             System.out.println();
-
+        
+            // Imprime a pontuação atualizada de cada jogador
             for (int i = 0; i < nomesJogadores.size(); i++) {
-                System.out.println("Pontuação do Jogador " + (i + 1) + " - " + getNomeJogador(i) + ": " + pontuacao.get(i));
+                int pontosJogador = pontuacao.get(i);
+                System.out.println("Pontuação do Jogador " + (i + 1) + " - " + getNomeJogador(i) + ": " + pontosJogador);
             }
         }
 
         // Finaliza o jogo ao acabar 
         public void finalizarJogo() {
             System.out.println("\n--- Fim do Jogo ---");
-
+        
             // Lógica para calcular o vencedor do jogo
             int menorPontuacao = Collections.min(pontuacao);
             List<String> vencedores = new ArrayList<>();
-
+        
             for (int i = 0; i < pontuacao.size(); i++) {
                 if (pontuacao.get(i) == menorPontuacao) {
                     vencedores.add(getNomeJogador(i));
                 }
             }
-
+        
             // Imprime a pontuação individual de cada jogador ao final do jogo
             for (int i = 0; i < nomesJogadores.size(); i++) {
                 System.out.println("Pontuação final do Jogador " + (i + 1) + " - " + getNomeJogador(i) + ": " + pontuacao.get(i));
             }
-
+        
             // Imprime as cartas coletadas por cada jogador ao final do jogo
-            for (int i = 0; i < maos.size(); i++) {
-                System.out.println("Cartas coletadas por " + getNomeJogador(i) + ": " + maos.get(i));
+            for (String jogador : nomesJogadores) {
+                List<Integer> cartasDoJogador = cartasColetadas.getOrDefault(jogador, new ArrayList<>());
+                System.out.println("Cartas coletadas por " + jogador + ": " + cartasDoJogador.size() + " cartas: " + cartasDoJogador);
             }
-
+        
             // Imprime o jogador vencedor ou empate entre jogadores
             if (vencedores.size() == 1) {
                 System.out.println("\nJogador vencedor: " + vencedores.get(0));
